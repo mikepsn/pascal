@@ -1,0 +1,902 @@
+!<Submit_Archive> <michp> Thu Jun  3 09:54:26 1993
+====================================================
+stage3a.p 23424 660
+====================================================
+program stage3 (input, output,pingpong,means,medians);
+
+{
+| Image Processing : Ping Pong Playing Robot
+| Function : This program detects a ping pong ball in a digitized image.
+| The program reads in an image file consisting of integer greYscale
+| values from 0 to 255, and from this image produced a mean filtered
+| or average image which is then in turn thresholded at an inputed value.
+| The program then repeats the same process but using a median filtering technique.
+| The result is an image which distinguishes light areas from dark areas
+| so that the ping pong ball in the image can be recognised by the robot.
+| Written by : Michael Papasimeon (User name: mikepsn) 
+| Date : 23 May 1993
+| Written for : Project C of Engineering Computing 121
+| Level : Stage 3
+}
+
+const
+	maxwidth = 64;				{ maximum width (columns) of image }
+        maxheight = 64;				{ maximum height (rows) of image }
+        
+type
+	pix = 0..255; 				{ pixel value range }
+        widthrange = 1..maxwidth;		{ range of the image width }
+        heightrange = 1..maxheight;		{ range of the image height }
+	image = record                  	{ record of image }
+        	width : integer;		{ image width (no. of columns) }
+                height : integer;		{ image height (no. of rows) }
+                pixels : array[widthrange,heightrange] of pix;
+        end; { image }
+        elements = array[1..9] of integer;
+        range = 1..9;
+
+var
+	threshold : integer;			{ threshold value }
+	picture : image;			{ original image record }
+        mean : image;				{ mean filtered image }
+        binarymean : image;                     { binary mean filtered image }
+        data : elements;                        { neighbour data to sort }
+        median : image;				{ median filtered image }
+        binarymedian : image;			{ binary median image }
+        pingpong : text;			{ file read from current directory }
+        means : text;	           		{ mean text file written to }
+        medians : text;	         		{ median text file to write to }
+        value : integer;			{ individual greyscale values }
+        row, column : integer;			{ row & column coordinates }
+        error1 : boolean;			{ error checking variable }
+        error2 : boolean;			{ error checking variable }
+
+procedure checkdimensions;
+{ checks that the dimensions of the picture are within the range }
+begin
+	if (picture.width > maxwidth) or (picture.height > maxheight) then begin
+        	error1 := true;
+                writeln;
+        	writeln('The values for the size of the image are out of range.');
+                writeln('For the image the maximum values are: ');
+                writeln('Width: 64 ');
+                writeln('Height: 64 ');
+                writeln;
+                writeln('Restart the program using values that are within range.');
+        end; {if}
+end; { checkdimensions }
+
+procedure checkvalues;
+{ writes an error message if a pixel value is out of the range 0 to 255 }
+begin
+	if error2 = true then begin
+        	writeln;
+                writeln('One or more of the pixel values are out of range.');
+                writeln('The grayscale brightness pixel values should');
+                writeln('be in the range of 0 to 255.');
+                writeln;
+                writeln('Restart the program making sure the pixel');
+                writeln('values are in the range.');
+        end; {if}
+end; { checkvalues }
+
+procedure readimage;
+{ reads the file pingpong from current directory into picture record }
+begin
+        reset(pingpong);
+        picture.height := 1; {initialise for while loop }
+        while {not eof(imagefile)} row < picture.height  do begin
+		writeln('Enter the width and height of the image.');
+        	read(pingpong, picture.width);
+        	read(pingpong, picture.height);
+        	writeln('The width is : ', picture.width);
+        	writeln('The height is : ', picture.height);
+        	checkdimensions;
+        	if error1 = false then begin
+        		writeln('Entering the grayscale values');
+       		for row := 1 to picture.height do begin
+        		for column := 1 to picture.width do begin
+        			read(pingpong, value);
+                			if (value < 0) or (value > 255) then begin
+                				error2 := true;
+                			end; {if}
+                		picture.pixels[column,row] := value;
+                	end; {for}
+        	end; {for}
+        	end; {if}
+        end; {while}
+end; {readimage}
+
+procedure writeimage;
+{ writes the image that was read from the file onto the screen }
+begin
+	writeln;
+	writeln('The greyscale values of the image read from the file are: ');
+	writeln;
+        for row := 1 to picture.height do begin
+        	for column := 1 to picture.width do begin
+                	write(' ',picture.pixels[column,row]:3);
+                end; {for}
+                writeln;
+        end; {for}
+        writeln;
+end; {writeimage}
+
+procedure makemean;
+{
+ finds and calculates the average of each 3x3 matrix neighbourhood for
+ each pixel in the picture image and uses this to create a new mean filtered image
+}
+begin
+        mean.width := picture.width;
+        mean.height := picture.height;
+        for row := 1 to picture.height do begin
+        	for column := 1 to picture.width do begin
+                	if (row = picture.height) and (column = picture.width) then begin
+            			mean.pixels[column,row] :=
+                                	round((
+                                	4*picture.pixels[column,row] +
+                                        2*picture.pixels[column,row-1] +
+                                        2*picture.pixels[column-1,row] +
+                                        picture.pixels[column-1,row-1]
+                                        )/9) ;
+			end {if}
+                        else if (row = 1) and (column = picture.width) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        4*picture.pixels[column,row] +
+                                        2*picture.pixels[column-1,row] +
+                                        2*picture.pixels[column,row+1] +
+                                        picture.pixels[column-1,row+1]
+                                        )/9) ;
+                        end {if}
+                        else if (row = picture.height) and (column = 1) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        4*picture.pixels[column,row] +
+                                        2*picture.pixels[column,row-1] +
+                                        2*picture.pixels[column+1,row] +
+                                        picture.pixels[column+1,row-1]
+                                        )/9) ;
+                        end {if}
+                        else if (row = 1) and (column = 1) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        4*picture.pixels[column,row] +
+                                        2*picture.pixels[column,row+1] +
+                                        2*picture.pixels[column+1,row] +
+                                        picture.pixels[column+1,row+1]
+                                        )/9) ;
+                        end {if}
+                        else if (column = picture.width) and (row<>1) and (row<>picture.height) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        picture.pixels[column-1,row-1] +
+                                        picture.pixels[column-1,row] +
+                                        picture.pixels[column-1,row+1] +
+                                        2*picture.pixels[column,row-1] +
+                                        2*picture.pixels[column,row] +
+                                        2*picture.pixels[column,row+1]
+                                        )/9) ;
+                        end {if}
+                        else if (column = 1) and (row<>1) and (row<>picture.height) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        2*picture.pixels[column,row-1] +
+                                        2*picture.pixels[column, row] +
+                                        2*picture.pixels[column,row+1] +
+                                        picture.pixels[column+1,row-1] +
+                                        picture.pixels[column+1,row] +
+                                        picture.pixels[column+1,row+1]
+                                        )/9) ;
+                        end {if}
+                        else if (row = picture.height) and (column<>1) and (column<>picture.width) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        picture.pixels[column-1,row-1] +
+                                        picture.pixels[column,row-1] +
+                                        picture.pixels[column+1,row-1] +
+                                        2*picture.pixels[column-1,row] +
+                                        2*picture.pixels[column,row] +
+                                        2*picture.pixels[column+1,row]
+                                        )/9) ;
+                        end {for}
+                        else if (row = 1) and (column<>1) and (column<>picture.width) then begin
+                        	mean.pixels[column,row] :=
+                                	round((
+                                        2*picture.pixels[column-1,row] +
+                                        2*picture.pixels[column,row] +
+                                        2*picture.pixels[column+1,row] +
+                                        picture.pixels[column-1,row+1] +
+                                        picture.pixels[column,row+1] +
+                                        picture.pixels[column+1,row+1]
+                                        )/9) ;
+                        end {for}
+                        else {if ((row<picture.height) and (row>1))
+                        and ((column<picture.width) and (column>1)) then begin}
+                        	mean.pixels[column,row] :=
+                                round((
+                                picture.pixels[column-1,row-1] +
+				picture.pixels[column-1,row] +
+                                picture.pixels[column-1,row+1] +
+                                picture.pixels[column,row-1] +
+                                picture.pixels[column,row] +
+                                picture.pixels[column,row+1] +
+                                picture.pixels[column+1,row-1] +
+                                picture.pixels[column+1,row] +
+                                picture.pixels[column+1,row+1]
+                                )/9) ;
+                end; {for}
+        end; {for}
+end; { makemean }
+
+procedure writemean;
+{ writes the mean filtered image to the screen }
+begin
+	writeln('The greyscale values of the mean filtered image are: ');
+	writeln;
+        writeln(mean.width,' ',mean.height);
+        for row := 1 to mean.height do begin
+        	for column := 1 to mean.width do begin
+                	write(' ',mean.pixels[column,row]:3);
+                end; {for}
+                writeln;
+        end; {for}
+        writeln;
+end; {writemean}
+
+procedure writemeanfile;
+{ writes the mean filtered image to a text file called mean }
+begin
+	rewrite(means);
+        write(means, mean.width:2);
+        write(means,mean.height:2);
+        writeln(means);
+        for row := 1 to mean.height do begin
+        	for column := 1 to mean.width do begin
+                	write(means, mean.pixels[column,row]:4);
+                end; {for}
+                writeln(means);
+        end; {for}
+end; {writemeanfile}
+
+procedure makemeanbinary;
+{ makes a binary (0 and 1) map of the mean filtered image using the threshold value }
+begin
+        binarymean.width := mean.width;
+        binarymean.height := mean.height;
+	for row := 1 to mean.height do begin
+     		for column := 1 to mean.width do begin
+        		if mean.pixels[column,row] >= threshold then
+                		binarymean.pixels[column,row] := 1
+                	else if mean.pixels[column,row] < threshold then
+                		binarymean.pixels[column,row] := 0;
+        	end; {for}
+	end; {for}
+end; {makemeanbinary}
+
+procedure writemeanthresh;
+{
+ writes to the screen a thresholded image of the mean filtered image
+ using the data from the binary file
+}
+begin
+	writeln('For a threshold value of ',threshold, ' the mean filtered');
+        writeln('image looks like this:');
+        writeln;
+        for row := 1 to binarymean.height do begin
+        	for column := 1 to binarymean.width do begin
+                	if binarymean.pixels[column,row] = 1 then
+                        	write(' #')
+                        else if binarymean.pixels[column,row] = 0 then
+                        	write(' -')
+                end; {for}
+                writeln;
+        end; {for}
+        writeln;
+end; {writemeanthresh}
+
+procedure sort(var a:elements; n : range);
+var
+	temp : integer;
+        i, chosen, leftmost : range;
+
+begin
+	for leftmost := 1 to n-1 do begin
+        	chosen := leftmost;
+                for i := leftmost + 1 to n do
+                	if a[i] < a[chosen] then chosen := i;
+                temp := a[chosen];
+                a[chosen] := a[leftmost];
+                a[leftmost] := temp;
+        end;
+end; {sort}
+
+procedure makemedian;
+{
+ finds and calculates the median of each 3x3 matrix neighbourhood for
+ each pixel in the picture image and uses this to create a new median filtered image
+}
+var
+	k : integer;
+begin
+        median.width := picture.width;
+        median.height := picture.height;
+        for row := 1 to picture.height do begin
+        	for column := 1 to picture.width do begin
+                	if (row = picture.height) and (column = picture.width) then begin
+            			for k := 1 to 4 do
+                                	data[k] := picture.pixels[column,row];
+                                for k := 5 to 6 do
+                                        data[k] := picture.pixels[column,row-1];
+                                for k := 7 to 8 do
+                                        data[k] := picture.pixels[column-1,row];
+                                        data[9] := picture.pixels[column-1,row-1];
+                        end {if}
+                        else if (row = 1) and (column = picture.width) then begin
+                        	for k := 1 to 4 do
+                                        data[k] := picture.pixels[column,row];
+                                for k := 5 to 6 do
+                                        data[k] := picture.pixels[column-1,row];
+                                for k := 7 to 8 do
+                                        data[k] := picture.pixels[column,row+1];
+                                        data[9] := picture.pixels[column-1,row+1];
+                        end {if}
+                        else if (row = picture.height) and (column = 1) then begin
+                        	for k := 1 to 4 do
+                                        data[k] := picture.pixels[column,row];
+                                for k := 5 to 6 do
+                                        data[k] := picture.pixels[column,row-1];
+                                for k := 7 to 8 do
+                                        data[k] := picture.pixels[column+1,row];
+                                        data[9] := picture.pixels[column+1,row-1];
+                        end {if}
+                        else if (row = 1) and (column = 1) then begin
+                        	for k := 1 to 4 do
+                                        data[k] := picture.pixels[column,row];
+                                for k := 5 to 6 do
+                                        data[k] := picture.pixels[column,row+1];
+                                for k := 7 to 8 do
+                                        data[k] := picture.pixels[column+1,row];
+                                        data[9] := picture.pixels[column+1,row+1];
+                        end {if}
+                        else if (column = picture.width) and (row<>1) and (row<>picture.height) then begin
+                                        data[1] := picture.pixels[column-1,row-1];
+                                        data[2] := picture.pixels[column-1,row];
+                                        data[3] := picture.pixels[column-1,row+1];
+                        	for k := 4 to 5 do
+                                        data[k] := picture.pixels[column,row-1];
+                        	for k := 6 to 7 do
+                                        data[k] := picture.pixels[column,row];
+                        	for k := 8 to 9 do
+                                        data[k] := picture.pixels[column,row+1];
+                        end {if}
+                        else if (column = 1) and (row<>1) and (row<>picture.height) then begin
+                        	for k := 1 to 2 do
+                                        data[k] := picture.pixels[column,row-1];
+                                for k := 3 to 4 do
+                                        data[k] := picture.pixels[column, row];
+                                for k := 5 to 6 do
+                                        data[k] := picture.pixels[column,row+1] ;
+                                        data[7] := picture.pixels[column+1,row-1];
+                                        data[8] := picture.pixels[column+1,row];
+                                        data[9] := picture.pixels[column+1,row+1];
+                        end {if}
+                        else if (row = picture.height) and (column<>1) and (column<>picture.width) then begin
+                                        data[1] := picture.pixels[column-1,row-1];
+                                        data[2] := picture.pixels[column,row-1];
+                                        data[3] := picture.pixels[column+1,row-1];
+                                for k := 4 to 5 do
+                                        data[k] := picture.pixels[column-1,row];
+                                for k := 6 to 7 do
+                                        data[k] := picture.pixels[column,row];
+                                for k := 8 to 9 do
+                                        data[k] := picture.pixels[column+1,row];
+                        end {for}
+                        else if (row = 1) and (column<>1) and (column<>picture.width) then begin
+                        	for k := 1 to 2 do
+                                        data[k] := picture.pixels[column-1,row];
+                                for k := 3 to 4 do
+                                        data[k] := picture.pixels[column,row];
+                                for k := 5 to 6 do
+                                        data[k] := picture.pixels[column+1,row];
+                                        data[7] := picture.pixels[column-1,row+1];
+                                        data[8] := picture.pixels[column,row+1];
+                                        data[9] := picture.pixels[column+1,row+1];
+                        end {for}
+                        else begin
+                                data[1] := picture.pixels[column-1,row-1];
+				data[2] := picture.pixels[column-1,row];
+                                data[3] := picture.pixels[column-1,row+1];
+                                data[4] := picture.pixels[column,row-1];
+                                data[5] := picture.pixels[column,row];
+                                data[6] := picture.pixels[column,row+1];
+                                data[7] := picture.pixels[column+1,row-1];
+                                data[8] := picture.pixels[column+1,row];
+                                data[9] := picture.pixels[column+1,row+1];
+                        end; {else}
+                sort(data,9);
+                median.pixels[column,row] := data[5];
+                end; {for}
+        end; {for}
+end; { makemean }
+
+procedure writemedian;
+begin
+	writeln;
+     	writeln('The greyscale values of the median filtered image are: ');
+	writeln;
+        writeln(median.width,' ',median.height);
+        for row := 1 to median.height do begin
+        	for column := 1 to median.width do begin
+                	write(' ',median.pixels[column,row]:3);
+                end; {for}
+                writeln;
+        end; {for}
+        writeln;
+end; { writemedian }
+
+procedure makemedianbinary;
+{ makes a binary (0 and 1) map of the median filtered image using the threshold value }
+begin
+        binarymedian.width := median.width;
+        binarymedian.height := median.height;
+	for row := 1 to median.height do begin
+     		for column := 1 to median.width do begin
+        		if median.pixels[column,row] >= threshold then
+                		binarymedian.pixels[column,row] := 1
+                	else if median.pixels[column,row] < threshold then
+                		binarymedian.pixels[column,row] := 0;
+        	end; {for}
+	end; {for}
+end; {makemedianbinary}
+
+procedure writemedianthresh;
+{
+ writes to the screen a thresholded image of the median filtered image
+ using the data from the binary file
+}
+begin
+	writeln('For a threshold value of ',threshold, ' the median filtered');
+        writeln('image looks like this:');
+        writeln;
+        for row := 1 to binarymedian.height do begin
+        	for column := 1 to binarymedian.width do begin
+                	if binarymedian.pixels[column,row] = 1 then
+                        	write(' #')
+                        else if binarymedian.pixels[column,row] = 0 then
+                        	write(' -')
+                end; {for}
+                writeln;
+        end; {for}
+        writeln;
+end; {writemedianthresh}
+
+procedure writemedianfile;
+{ writes the median filtered image to a text file called mean }
+begin
+	rewrite(medians);
+        write(medians, mean.width:2);
+        write(medians,mean.height:2);
+        writeln(medians);
+        for row := 1 to median.height do begin
+        	for column := 1 to median.width do begin
+                	write(medians, median.pixels[column,row]:4);
+                end; {for}
+                writeln(medians);
+        end; {for}
+end; {writemedianfile}
+
+begin
+	writeln('*************************************************');
+	writeln('Welcome to the Ping Pong Image Processor Program.');
+        writeln('*************************************************');
+        writeln;
+        write('Please, enter the threshold value for the image: ');
+        readln(threshold);
+	readimage;
+        checkvalues;
+        if (error1 = false) and (error2 = false) then begin
+        	writeln;
+        	writeln('***** MEAN FILTERING *****');
+                writeimage;
+                makemean;
+                writemean;
+                writemeanfile;
+        	makemeanbinary;
+                writemeanthresh;
+                writeln('***** MEDIAN FILTERING*****');
+                makemedian;
+                writemedian;
+                makemedianbinary;
+        	writemedianthresh;
+                writemedianfile;
+        end; {if}
+end. {main}
+
+====================================================
+OUTPUT 9988 660
+====================================================
+************
+Compiling...
+************
+Thu Jun  3 09:53:45 1993  stage3a.p:
+s 94 - For-statement variable row must be declared in the block in which it is used
+s 95 - For-statement variable column must be declared in the block in which it is used
+s 113 - For-statement variable row must be declared in the block in which it is used
+s 114 - For-statement variable column must be declared in the block in which it is used
+s 130 - For-statement variable row must be declared in the block in which it is used
+s 131 - For-statement variable column must be declared in the block in which it is used
+s 236 - For-statement variable row must be declared in the block in which it is used
+s 237 - For-statement variable column must be declared in the block in which it is used
+s 252 - For-statement variable row must be declared in the block in which it is used
+s 253 - For-statement variable column must be declared in the block in which it is used
+s 265 - For-statement variable row must be declared in the block in which it is used
+s 266 - For-statement variable column must be declared in the block in which it is used
+s 284 - For-statement variable row must be declared in the block in which it is used
+s 285 - For-statement variable column must be declared in the block in which it is used
+s 322 - For-statement variable row must be declared in the block in which it is used
+s 323 - For-statement variable column must be declared in the block in which it is used
+s 427 - For-statement variable row must be declared in the block in which it is used
+s 428 - For-statement variable column must be declared in the block in which it is used
+s 441 - For-statement variable row must be declared in the block in which it is used
+s 442 - For-statement variable column must be declared in the block in which it is used
+s 460 - For-statement variable row must be declared in the block in which it is used
+s 461 - For-statement variable column must be declared in the block in which it is used
+s 479 - For-statement variable row must be declared in the block in which it is used
+s 480 - For-statement variable column must be declared in the block in which it is used
+********************************************
+Executing with ../../data/121.data.pingpong.1 as input
+********************************************
+*************************************************
+Welcome to the Ping Pong Image Processor Program.
+*************************************************
+
+Please, enter the threshold value for the image: Enter the width and height of the image.
+The width is :          8
+The height is :          6
+Entering the grayscale values
+
+***** MEAN FILTERING *****
+
+The greyscale values of the image read from the file are: 
+
+   3   0   0 171 255 222   0 117
+  16   0 184 150 161 214 178  68
+  51   0 218 243 181 248 153  52
+ 138  77 201  96 110 226 255   0
+  54  17  37 127 235 255  63   0
+  87 174  14 111   0  18 190  11
+
+The greyscale values of the mean filtered image are: 
+
+         8          6
+   5  23  75 150 202 167 126  87
+  16  52 107 174 205 179 139  89
+  54  98 130 172 181 192 155  92
+  64  88 113 161 191 192 139  64
+  92  89  95 103 131 150 113  59
+  91  73  87  72  97 108  84  54
+
+For a threshold value of        127 the mean filtered
+image looks like this:
+
+ - - - # # # - -
+ - - - # # # # -
+ - - # # # # # -
+ - - - # # # # -
+ - - - - # # - -
+ - - - - - - - -
+
+***** MEDIAN FILTERING*****
+
+The greyscale values of the median filtered image are: 
+
+         8          6
+   3   0   0 171 214 214 117 117
+   3   3 150 181 214 181 153  68
+  51  77 150 181 181 181 178  68
+  54  54  96 181 226 226 153  52
+  87  77  96 110 111 190  63  11
+  87  54 111  37 111  63  18  11
+
+For a threshold value of        127 the median filtered
+image looks like this:
+
+ - - - # # # - -
+ - - # # # # # -
+ - - # # # # # -
+ - - - # # # # -
+ - - - - - # - -
+ - - - - - - - -
+
+********************************************
+Executing with ../../data/121.data.pingpong.2 as input
+********************************************
+*************************************************
+Welcome to the Ping Pong Image Processor Program.
+*************************************************
+
+Please, enter the threshold value for the image: Enter the width and height of the image.
+The width is :          7
+The height is :          7
+Entering the grayscale values
+
+***** MEAN FILTERING *****
+
+The greyscale values of the image read from the file are: 
+
+ 100 100 100   0 100 100 100
+ 100 200 100 100 100 200 100
+ 100 100 200 100 200 100 100
+   0 100 100 200 100 100   0
+ 100 100 200 100 200 100 100
+ 100 200 100 100 100 200 100
+ 100 100 100   0 100 100 100
+
+The greyscale values of the mean filtered image are: 
+
+         7          7
+ 111 111  89  78  89 111 111
+ 111 122 111 111 111 122 111
+  89 111 133 133 133 111  89
+  78 111 133 156 133 111  78
+  89 111 133 133 133 111  89
+ 111 122 111 111 111 122 111
+ 111 111  89  78  89 111 111
+
+For a threshold value of        127 the mean filtered
+image looks like this:
+
+ - - - - - - -
+ - - - - - - -
+ - - # # # - -
+ - - # # # - -
+ - - # # # - -
+ - - - - - - -
+ - - - - - - -
+
+***** MEDIAN FILTERING*****
+
+The greyscale values of the median filtered image are: 
+
+         7          7
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 200 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+
+For a threshold value of        127 the median filtered
+image looks like this:
+
+ - - - - - - -
+ - - - - - - -
+ - - - - - - -
+ - - - # - - -
+ - - - - - - -
+ - - - - - - -
+ - - - - - - -
+
+********************************************
+Executing with ../../data/121.data.pingpong.3 as input
+********************************************
+*************************************************
+Welcome to the Ping Pong Image Processor Program.
+*************************************************
+
+Please, enter the threshold value for the image: Enter the width and height of the image.
+The width is :          8
+The height is :          6
+Entering the grayscale values
+
+One or more of the pixel values are out of range.
+The grayscale brightness pixel values should
+be in the range of 0 to 255.
+
+Restart the program making sure the pixel
+values are in the range.
+********************************************
+Executing with ../../data/121.data.pingpong.4 as input
+********************************************
+*************************************************
+Welcome to the Ping Pong Image Processor Program.
+*************************************************
+
+Please, enter the threshold value for the image: Enter the width and height of the image.
+The width is :          3
+The height is :         70
+
+The values for the size of the image are out of range.
+For the image the maximum values are: 
+Width: 64 
+Height: 64 
+
+Restart the program using values that are within range.
+Enter the width and height of the image.
+The width is :          3
+The height is :          0
+********************************************
+Executing with ../../data/121.data.pingpong.5 as input
+********************************************
+*************************************************
+Welcome to the Ping Pong Image Processor Program.
+*************************************************
+
+Please, enter the threshold value for the image: Enter the width and height of the image.
+The width is :          3
+The height is :          3
+Entering the grayscale values
+
+***** MEAN FILTERING *****
+
+The greyscale values of the image read from the file are: 
+
+  90 150 200
+  70 135 210
+  85 163 195
+
+The greyscale values of the mean filtered image are: 
+
+         3          3
+ 104 144 184
+ 104 144 184
+ 105 145 185
+
+For a threshold value of        127 the mean filtered
+image looks like this:
+
+ - # #
+ - # #
+ - # #
+
+***** MEDIAN FILTERING*****
+
+The greyscale values of the median filtered image are: 
+
+         3          3
+  90 150 200
+  90 150 195
+  85 163 195
+
+For a threshold value of        127 the median filtered
+image looks like this:
+
+ - # #
+ - # #
+ - # #
+
+********************************************
+Executing with ../../data/121.data.pingpong.6 as input
+********************************************
+*************************************************
+Welcome to the Ping Pong Image Processor Program.
+*************************************************
+
+Please, enter the threshold value for the image: Enter the width and height of the image.
+The width is :          8
+The height is :          6
+Entering the grayscale values
+
+***** MEAN FILTERING *****
+
+The greyscale values of the image read from the file are: 
+
+   3   0   0 171 255 222   0 117
+  16   0 184 150 161 214 178  68
+  51   0 218 243 181 248 153  52
+ 138  77 201  96 110 226 255   0
+  54  17  37 127 235 255  63   0
+  87 174  14 111   0  18 190  11
+
+The greyscale values of the mean filtered image are: 
+
+         8          6
+   5  23  75 150 202 167 126  87
+  16  52 107 174 205 179 139  89
+  54  98 130 172 181 192 155  92
+  64  88 113 161 191 192 139  64
+  92  89  95 103 131 150 113  59
+  91  73  87  72  97 108  84  54
+
+For a threshold value of        127 the mean filtered
+image looks like this:
+
+ - - - # # # - -
+ - - - # # # # -
+ - - # # # # # -
+ - - - # # # # -
+ - - - - # # - -
+ - - - - - - - -
+
+***** MEDIAN FILTERING*****
+
+The greyscale values of the median filtered image are: 
+
+         8          6
+   3   0   0 171 214 214 117 117
+   3   3 150 181 214 181 153  68
+  51  77 150 181 181 181 178  68
+  54  54  96 181 226 226 153  52
+  87  77  96 110 111 190  63  11
+  87  54 111  37 111  63  18  11
+
+For a threshold value of        127 the median filtered
+image looks like this:
+
+ - - - # # # - -
+ - - # # # # # -
+ - - # # # # # -
+ - - - # # # # -
+ - - - - - # - -
+ - - - - - - - -
+
+
+====================================================
+mean.all 792 660
+====================================================
+--------------------------------------------
+Output for ../../data/121.data.pingpong.1
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.2
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.3
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.4
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.5
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.6
+--------------------------------------------
+
+====================================================
+means 203 660
+====================================================
+ 8 6
+   5  23  75 150 202 167 126  87
+  16  52 107 174 205 179 139  89
+  54  98 130 172 181 192 155  92
+  64  88 113 161 191 192 139  64
+  92  89  95 103 131 150 113  59
+  91  73  87  72  97 108  84  54
+
+====================================================
+medians 203 660
+====================================================
+ 8 6
+   3   0   0 171 214 214 117 117
+   3   3 150 181 214 181 153  68
+  51  77 150 181 181 181 178  68
+  54  54  96 181 226 226 153  52
+  87  77  96 110 111 190  63  11
+  87  54 111  37 111  63  18  11
+
+====================================================
+median.all 792 660
+====================================================
+--------------------------------------------
+Output for ../../data/121.data.pingpong.1
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.2
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.3
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.4
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.5
+--------------------------------------------
+--------------------------------------------
+Output for ../../data/121.data.pingpong.6
+--------------------------------------------
+

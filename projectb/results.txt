@@ -1,0 +1,51 @@
+
+          ***** JOE THE HUMAN CANNONBALL *****
+
+Enter Joe's initial velocity in metres per second: Enter the target distance in metres: angle: 13.963
+1
+distance: -19.998
+angle: -265.290
+2
+distance: -19.998
+angle: 5319.764
+3
+distance: -20.005
+angle: -106381.309
+4
+distance: -19.992
+angle: 2127640.134
+5
+distance: -20.009
+angle: -42552788.723
+6
+distance: -20.005
+angle: 851055788.415
+7
+distance: -20.009
+angle: -17021115754.340
+8
+distance: -20.000
+angle: 340422315100.771
+9
+distance: -19.991
+angle: -6808446302001.451
+10
+distance: -20.001
+angle: 136168926040042.980
+11
+distance: -20.010
+angle: -2723378520800845.500
+12
+distance: -20.005
+angle: 54467570416016928.000
+13
+distance: -19.993
+angle: -1089351408320338600.000
+14
+distance: -20.003
+angle: 21787028166406771000.000
+15
+distance: -4248598719740311400000000000000000000000000000000000000000000000000000.000
+angle: -435740563328135400000.000
+16
+distance: 
